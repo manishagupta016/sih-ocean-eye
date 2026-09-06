@@ -17,7 +17,7 @@ between train and val and inflate the reported validation accuracy. Plain per-cl
 
 Usage:
     python -m scripts.prepare_classification_dataset \
-        --source "/Users/manishagupta/Downloads/train" \
+        --source "training_data/raw" \
         --out ml_artifacts/datasets/ocean_eye_cls \
         --val-fraction 0.15
 """

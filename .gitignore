@@ -10,9 +10,9 @@ backend/uploads/*
 !backend/uploads/.gitkeep
 backend/reports/*
 !backend/reports/.gitkeep
-backend/ml_artifacts/*.joblib
-backend/ml_artifacts/*.pt
-backend/ml_artifacts/*.json
+# Trained model artifacts (ocean_eye_cls.pt, discriminator.joblib, calibrator.joblib,
+# calibration_real_val.json) are intentionally NOT ignored - they're small (~3MB total) and
+# tracked so a fresh clone has working trained models without needing to retrain immediately.
 backend/ml_artifacts/datasets/
 backend/ml_artifacts/localizer_crops/
 backend/ml_artifacts/runs/

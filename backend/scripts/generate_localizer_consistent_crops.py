@@ -19,7 +19,7 @@ objects into several candidate boxes, as observed on real plane-wreck crops).
 
 Usage:
     python -m scripts.generate_localizer_consistent_crops \
-        --source "/Users/manishagupta/Downloads/train" \
+        --source "training_data/raw" \
         --out ml_artifacts/localizer_crops \
         --max-crops-per-image 8
 """

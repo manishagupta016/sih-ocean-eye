@@ -9,7 +9,7 @@ Full reproduction of the crop classifier shipped in ml_artifacts/ocean_eye_cls.p
     #    docstring for why this matters; skipping this step reproduces the *first*, buggier
     #    version that confidently misclassified background noise as high-confidence hazards).
     python -m scripts.generate_localizer_consistent_crops \
-        --source "/Users/manishagupta/Downloads/train" --out ml_artifacts/localizer_crops
+        --source "training_data/raw" --out ml_artifacts/localizer_crops
 
     # 2. Split into Ultralytics format, grouped by parent source image (no train/val leakage).
     python -m scripts.prepare_classification_dataset \

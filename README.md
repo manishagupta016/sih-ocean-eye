@@ -79,7 +79,10 @@ end-to-end in a real browser (not just unit-tested).
 ## Training the models on your own data
 
 Given a folder of per-class crops (`<source>/<Class Name>/*.jpg`, one subfolder per class, no
-bounding boxes needed):
+bounding boxes needed). The dataset used to train the models this repo ships with is included at
+`backend/training_data/raw/` (499 real side-scan sonar crops, 5 classes), so a fresh checkout can
+reproduce training immediately without sourcing external data - point `--source` at your own
+folder instead to train on different/additional data.
 
 ```bash
 cd backend && source .venv/bin/activate
@@ -87,7 +90,7 @@ cd backend && source .venv/bin/activate
 # 1. Regenerate training crops using the same localizer that runs at inference time (do not skip -
 #    training on clean whole-image crops instead reproduces the background-misclassification bug
 #    described above).
-python -m scripts.generate_localizer_consistent_crops --source "/path/to/your/crops" \
+python -m scripts.generate_localizer_consistent_crops --source "training_data/raw" \
     --out ml_artifacts/localizer_crops
 
 # 2. Split into train/val, grouped by parent source image (no leakage).
