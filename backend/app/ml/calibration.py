@@ -12,6 +12,7 @@ split of that same synthetic set and surfaced on the Analytics page, clearly lab
 bootstrap estimate - replace `train_calibrator()`'s data source with real validation logits before
 using this for anything but a demo.
 """
+import json
 import os
 
 import joblib
@@ -22,6 +23,19 @@ from app.core.config import settings
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
+
+# Written by scripts/train_calibrator_from_real_data.py alongside the calibrator itself, so the
+# Analytics page's reliability diagram plots the actual held-out predictions the calibrator was
+# fit on instead of silently falling back to synthetic data once real training has happened.
+REAL_VALIDATION_DATA_PATH = os.path.join(settings.ML_ARTIFACTS_DIR, "calibration_real_val.json")
+
+
+def _load_real_validation_data() -> tuple[np.ndarray, np.ndarray] | None:
+    if not os.path.exists(REAL_VALIDATION_DATA_PATH):
+        return None
+    with open(REAL_VALIDATION_DATA_PATH) as f:
+        data = json.load(f)
+    return np.array(data["confidences"]), np.array(data["corrects"])
 
 
 def _bootstrap_confidence_correctness(n: int = 4000, seed: int = 7) -> tuple[np.ndarray, np.ndarray]:
@@ -100,10 +114,24 @@ def compute_ece(confidences: np.ndarray, corrects: np.ndarray, n_bins: int = 10)
 
 
 def compute_validation_ece_report(n_bins: int = 10):
-    """Computes an ECE report against the same synthetic held-out distribution used for training,
-    for both raw and calibrated confidences, so the Analytics page can show the before/after effect
-    of calibration."""
-    raw_confidence, correct = _bootstrap_confidence_correctness(n=2000, seed=99)  # different seed = held-out
+    """Computes an ECE report for both raw and calibrated confidences, so the Analytics page can
+    show the before/after effect of calibration - against real held-out predictions once
+    scripts/train_calibrator_from_real_data.py has run, else against the same synthetic
+    distribution used to bootstrap the calibrator (clearly labeled as such via `source`)."""
+    real_data = _load_real_validation_data()
+    if real_data is not None:
+        raw_confidence, correct = real_data
+        source = "measured"
+        note = (
+            "Raw ECE is on real held-out classifier predictions. Calibrated ECE is fit and "
+            "evaluated on that same small validation set (in-sample) since there isn't enough "
+            "data for a further split - treat it as directional, not a rigorous held-out estimate."
+        )
+    else:
+        raw_confidence, correct = _bootstrap_confidence_correctness(n=2000, seed=99)  # different seed = held-out
+        source = "illustrative_demo"
+        note = "Bootstrapped synthetic overconfidence distribution - run scripts/train_calibrator_from_real_data.py to replace this."
+
     calibrator = get_calibrator()
     calibrated = np.clip(calibrator.predict(raw_confidence), 0.0, 1.0)
 
@@ -114,4 +142,6 @@ def compute_validation_ece_report(n_bins: int = 10):
         "calibrated_ece": cal_ece,
         "raw_bins": raw_bins,
         "calibrated_bins": cal_bins,
+        "source": source,
+        "note": note,
     }

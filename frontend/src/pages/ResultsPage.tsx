@@ -78,6 +78,25 @@ export function ResultsPage() {
         </Card>
       )}
 
+      {sonarFileQuery.data?.model_name === 'oceaneye-crop-classifier' && (
+        <Card className="mb-4 border-primary/30 bg-primary/5">
+          <CardContent className="flex items-start gap-3 p-4">
+            <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+            <div>
+              <p className="text-sm font-medium text-foreground">Real trained classifier, heuristic localization</p>
+              <p className="text-sm text-muted">
+                What each box <em>is</em> comes from a real model trained on real side-scan sonar
+                crops (76.4% held-out accuracy across 5 classes, evaluated on crops proposed the
+                same way this pipeline proposes them, not on clean whole images). Where the boxes
+                are drawn still comes from a simple bright/dark-shape heuristic, since no
+                bounding-box ground truth exists yet to train real object localization - so a
+                box's position/size is approximate even when its label is trustworthy.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {detectionsQuery.data && (
         <Card className="mb-4 border-primary/30 bg-primary/5">
           <CardContent className="flex items-start gap-3 p-4">

@@ -27,6 +27,8 @@ class CalibrationReport(BaseModel):
     model_config = ConfigDict(protected_namespaces=())
 
     model_version: str
+    source: str  # "measured" once scripts/train_calibrator_from_real_data.py has run, else "illustrative_demo"
+    note: str | None = None
     expected_calibration_error: float
     bins: list[CalibrationBin]
 

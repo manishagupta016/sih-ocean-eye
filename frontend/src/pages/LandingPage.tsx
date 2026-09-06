@@ -67,6 +67,11 @@ export function LandingPage() {
       </header>
 
       <section className="mx-auto max-w-5xl px-6 py-20 text-center">
+        <img
+          src="/logo-hero.png"
+          alt="Ocean Eye"
+          className="mx-auto mb-8 h-40 w-40 object-contain sm:h-48 sm:w-48"
+        />
         <p className="mb-3 text-xs font-medium uppercase tracking-widest text-primary">
           MoES / NIOT · PS 26057
         </p>

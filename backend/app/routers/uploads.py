@@ -150,7 +150,11 @@ def get_sonar_file(sonar_file_id: uuid.UUID, current_user: User = Depends(get_cu
     mv = sonar_file.model_version
     if mv is not None:
         result.model_name = mv.name
-        result.model_is_fallback = mv.name != "yolov8n-sss"
+        # Pure heuristic fallback (no trained model touched this file at all) vs. either a real
+        # trained detector or the real trained crop-classifier hybrid (localization is still
+        # heuristic there, but classification is real) - the frontend needs to tell these apart
+        # to render honest, distinct messaging rather than a single fallback/not-fallback banner.
+        result.model_is_fallback = mv.name == "mock-cv-blob-detector"
         result.model_provenance = mv.trained_on
     return result
 

@@ -2,19 +2,24 @@
 
 /* Dark "control-room" theme is the default (:root); toggling adds a `.light` class to <html>
    (see src/store/theme.ts) rather than following prefers-color-scheme, since this is an ops tool
-   that should look the same regardless of the operator's OS setting unless they opt out. */
-:root {
-  --color-background: #0a0e14;
-  --color-foreground: #e2e8f0;
-  --color-surface: #10151f;
-  --color-surface-raised: #161c28;
-  --color-border: #232b3a;
-  --color-muted: #8792a6;
-  --color-muted-foreground: #64708a;
+   that should look the same regardless of the operator's OS setting unless they opt out.
 
-  --color-primary: #22d3ee;
-  --color-primary-foreground: #04222a;
-  --color-accent: #38bdf8;
+   Palette below is sampled directly from the Ocean Eye logo (frontend/public/logo-icon.png -
+   sonar-cone blue #1ebdf5, mid blue #006ed8, deep navy iris #000d33) rather than a generic
+   Tailwind cyan, so the UI reads as one system with the mark instead of a coincidentally-similar
+   accent color. */
+:root {
+  --color-background: #050b18;
+  --color-foreground: #e7edf9;
+  --color-surface: #0b1526;
+  --color-surface-raised: #101f38;
+  --color-border: #1f3358;
+  --color-muted: #93a7c7;
+  --color-muted-foreground: #6b7fa3;
+
+  --color-primary: #1ebdf5;
+  --color-primary-foreground: #03212f;
+  --color-accent: #2f7dea;
 
   --color-success: #34d399;
   --color-warning: #fbbf24;
@@ -29,17 +34,17 @@
 }
 
 .light {
-  --color-background: #f4f6f9;
-  --color-foreground: #0f172a;
+  --color-background: #f3f6fb;
+  --color-foreground: #071226;
   --color-surface: #ffffff;
   --color-surface-raised: #ffffff;
-  --color-border: #dbe1ea;
-  --color-muted: #475569;
-  --color-muted-foreground: #64748b;
+  --color-border: #d7e0ef;
+  --color-muted: #3f527a;
+  --color-muted-foreground: #5b6f96;
 
-  --color-primary: #0891b2;
+  --color-primary: #0272c4;
   --color-primary-foreground: #ffffff;
-  --color-accent: #0284c7;
+  --color-accent: #0f5fbf;
 
   --color-success: #059669;
   --color-warning: #d97706;

@@ -22,12 +22,14 @@ async def lifespan(_: FastAPI):
     # cold-start training pass (both self-bootstrap on synthetic priors if no weights exist yet -
     # see app/ml/discriminator.py and app/ml/calibration.py for why).
     from app.ml.calibration import get_calibrator
+    from app.ml.classifier import get_classifier
     from app.ml.detector import get_detector
     from app.ml.discriminator import get_discriminator
 
     get_detector()
     get_discriminator()
     get_calibrator()
+    get_classifier()
     logger.info("startup_complete", environment=settings.ENVIRONMENT)
     yield
 

@@ -104,6 +104,8 @@ def calibration():
     report = get_calibration_report()
     return CalibrationReport(
         model_version="isotonic-v1",
+        source=report.get("source", "illustrative_demo"),
+        note=report.get("note"),
         expected_calibration_error=report["calibrated_ece"],
         bins=[CalibrationBin(**b) for b in report["calibrated_bins"]],
     )

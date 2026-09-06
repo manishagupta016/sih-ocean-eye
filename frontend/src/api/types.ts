@@ -189,6 +189,8 @@ export interface CalibrationBin {
 
 export interface CalibrationReport {
   model_version: string
+  source: string
+  note?: string | null
   expected_calibration_error: number
   bins: CalibrationBin[]
 }

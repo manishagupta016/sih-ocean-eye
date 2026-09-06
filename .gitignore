@@ -12,6 +12,11 @@ backend/reports/*
 !backend/reports/.gitkeep
 backend/ml_artifacts/*.joblib
 backend/ml_artifacts/*.pt
+backend/ml_artifacts/*.json
+backend/ml_artifacts/datasets/
+backend/ml_artifacts/localizer_crops/
+backend/ml_artifacts/runs/
+backend/ml_artifacts/weights_cache/
 
 frontend/node_modules/
 frontend/dist/

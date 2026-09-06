@@ -27,10 +27,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { classLabelToTitle } from '@/lib/format'
 
 const CHART_COLORS = {
-  precision: '#22d3ee',
-  recall: '#38bdf8',
+  precision: '#1ebdf5',
+  recall: '#2f7dea',
   map50: '#34d399',
-  p50: '#22d3ee',
+  p50: '#1ebdf5',
   p95: '#f87171',
   inDomain: '#34d399',
   crossDomain: '#f87171',
@@ -95,17 +95,13 @@ export function AnalyticsPage() {
             </Card>
           )}
 
-          {(performanceQuery.data?.source === 'illustrative_demo' || crossDomainQuery.data?.source === 'illustrative_demo') && (
-            <Badge variant="warning" className="mb-1">
-              Illustrative numbers - run scripts/evaluate_detector.py and scripts/cross_domain_eval.py against a real
-              validation set to replace these
-            </Badge>
-          )}
-
           <div className="grid gap-4 lg:grid-cols-2">
             <Card>
               <CardHeader>
-                <CardTitle>Detection performance by class</CardTitle>
+                <div className="flex items-center justify-between gap-2">
+                  <CardTitle>Detection performance by class</CardTitle>
+                  <SourceBadge source={performanceQuery.data?.source} />
+                </div>
                 <CardDescription>
                   Overall: precision {Math.round((performanceQuery.data?.precision ?? 0) * 100)}%, recall{' '}
                   {Math.round((performanceQuery.data?.recall ?? 0) * 100)}%, mAP@0.5{' '}
@@ -132,10 +128,14 @@ export function AnalyticsPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Calibration reliability diagram</CardTitle>
+                <div className="flex items-center justify-between gap-2">
+                  <CardTitle>Calibration reliability diagram</CardTitle>
+                  <SourceBadge source={calibrationQuery.data?.source} />
+                </div>
                 <CardDescription>
                   Expected Calibration Error: {((calibrationQuery.data?.expected_calibration_error ?? 0) * 100).toFixed(1)}%
                   - closer to the diagonal is better calibrated.
+                  {calibrationQuery.data?.note && <span className="block mt-1 text-warning">{calibrationQuery.data.note}</span>}
                 </CardDescription>
               </CardHeader>
               <CardContent className="h-72 p-2">
@@ -173,7 +173,10 @@ export function AnalyticsPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Cross-domain accuracy drop</CardTitle>
+                <div className="flex items-center justify-between gap-2">
+                  <CardTitle>Cross-domain accuracy drop</CardTitle>
+                  <SourceBadge source={crossDomainQuery.data?.source} />
+                </div>
                 <CardDescription>
                   mAP@0.5 in-domain vs. on a held-out different sonar/site source. FLS data is never used as SSS
                   ground truth - pretraining only.
@@ -227,5 +230,18 @@ export function AnalyticsPage() {
         </div>
       )}
     </AppShell>
+  )
+}
+
+function SourceBadge({ source }: { source?: string }) {
+  if (!source) return null
+  return source === 'measured' ? (
+    <Badge variant="success" className="shrink-0">
+      Measured
+    </Badge>
+  ) : (
+    <Badge variant="warning" className="shrink-0">
+      Illustrative
+    </Badge>
   )
 }

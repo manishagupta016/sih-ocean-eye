@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import JSON, String
+from sqlalchemy import JSON, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -14,6 +14,8 @@ class ModelVersion(Base):
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     version: Mapped[str] = mapped_column(String(40), nullable=False)
     trained_on: Mapped[str] = mapped_column(
-        String(500), nullable=False
-    )  # e.g. "SeabedObjects-KLSG-style + synthetic; FLS used for pretraining only"
+        Text, nullable=False
+    )  # e.g. "SeabedObjects-KLSG-style + synthetic; FLS used for pretraining only" - unbounded
+    # since a real training run's provenance (dataset composition, methodology fixes, measured
+    # accuracy) routinely runs longer than a fixed varchar was originally sized for.
     metrics_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)

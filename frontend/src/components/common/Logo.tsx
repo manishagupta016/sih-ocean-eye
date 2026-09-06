@@ -6,7 +6,7 @@ export function Logo({ size = 'md', className }: { size?: 'sm' | 'md' | 'lg'; cl
 
   return (
     <div className={cn('flex items-center gap-2', className)}>
-      <img src="/logo.png" alt="Ocean Eye" className={cn(iconSize, 'shrink-0 rounded-full object-cover')} />
+      <img src="/logo-icon.png" alt="Ocean Eye" className={cn(iconSize, 'shrink-0 object-contain')} />
       <span className={cn('font-semibold tracking-wide', textSize)}>OCEAN EYE</span>
     </div>
   )

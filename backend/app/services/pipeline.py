@@ -17,11 +17,12 @@ from app.core.logging import get_logger
 from app.db.redis_client import set_job_status
 from app.db.session import SessionLocal
 from app.ml.calibration import calibrate
+from app.ml.classifier import get_classifier
 from app.ml.detector import get_detector
 from app.ml.discriminator import discriminate
 from app.ml.geolocation import attach_geolocation, parse_nav_log
 from app.ml.risk_scoring import score_detection
-from app.ml.types import CalibratedDetection, PipelineContext
+from app.ml.types import CalibratedDetection, PipelineContext, RawDetection
 from app.models.alert import Alert, AlertSeverity
 from app.models.detection import Detection
 from app.models.model_version import ModelVersion
@@ -38,10 +39,15 @@ TIER_TO_ALERT_SEVERITY = {
 
 
 def _get_or_create_model_version(db, name: str, version: str, trained_on: str) -> ModelVersion:
+    """Upserts by (name, version): artifact files get retrained in place under the same path
+    during demo/dev iteration, so an existing row's `trained_on` description is refreshed rather
+    than left stale from a previous training run."""
     existing = (
         db.query(ModelVersion).filter(ModelVersion.name == name, ModelVersion.version == version).first()
     )
     if existing:
+        existing.trained_on = trained_on
+        db.flush()
         return existing
     mv = ModelVersion(name=name, version=version, trained_on=trained_on, metrics_json={})
     db.add(mv)
@@ -99,22 +105,61 @@ def run_detection_pipeline(sonar_file_id: uuid.UUID, job_id: str) -> None:
         detector_result = detector.detect(image)
         record_latency("detection", (time.perf_counter() - t0) * 1000)
 
-        detector_mv = _get_or_create_model_version(
-            db,
-            detector.model_name,
-            detector_result.model_version,
-            trained_on=(
-                "SeabedObjects-KLSG-style + synthetic SSS augmentation. "
-                "FLS datasets used for pretraining/transfer-learning only, never as SSS ground truth."
-                if detector.model_name == "yolov8n-sss"
-                else "No fine-tuned SSS weights present - classical CV blob detector fallback (demo mode)."
-            ),
-        )
+        # Classification stage: if a real crop classifier has been trained (see
+        # scripts/prepare_classification_dataset.py + scripts/train_classifier.py), re-classify
+        # each candidate region the localizer proposed with the real model instead of the
+        # detector's heuristic class guess, and drop candidates it recognizes as plain seabed
+        # texture (no object) rather than reporting them as debris. Localization itself (finding
+        # *where* candidates are) stays with the classical-CV proposer either way - the trained
+        # model answers "what is this crop", not "where is it", since no bounding-box ground
+        # truth was available to train a real detector.
+        t0 = time.perf_counter()
+        classifier = get_classifier()
+        classified_detections = detector_result.detections
+        if classifier is not None:
+            reclassified = []
+            for det in detector_result.detections:
+                result = classifier.classify(image, det.bbox)
+                if result is None:
+                    continue  # classifier says this is background, not an object
+                label, confidence = result
+                reclassified.append(RawDetection(bbox=det.bbox, class_label=label, raw_confidence=confidence))
+            classified_detections = reclassified
+        record_latency("classification", (time.perf_counter() - t0) * 1000)
+
+        if classifier is not None:
+            detector_mv = _get_or_create_model_version(
+                db,
+                "oceaneye-crop-classifier",
+                classifier.version,
+                trained_on=(
+                    "Localization: classical CV blob detector (no bounding-box ground truth available). "
+                    "Classification: YOLOv8n-cls fine-tuned on 499 real side-scan sonar crops across 5 "
+                    "user-supplied classes (engineering_platform, pipeline_or_cable, plane_real, "
+                    "seabed_surface, underwater_residual_mound), expanded to 3,937 localizer-consistent "
+                    "training crops so train/inference distributions match (see "
+                    "scripts/generate_localizer_consistent_crops.py); 76.4% held-out validation accuracy "
+                    "(447/585, split grouped by parent image to avoid train/val leakage - see "
+                    "scripts/prepare_classification_dataset.py + scripts/train_classifier.py)."
+                ),
+            )
+        else:
+            detector_mv = _get_or_create_model_version(
+                db,
+                detector.model_name,
+                detector_result.model_version,
+                trained_on=(
+                    "SeabedObjects-KLSG-style + synthetic SSS augmentation. "
+                    "FLS datasets used for pretraining/transfer-learning only, never as SSS ground truth."
+                    if detector.model_name == "yolov8n-sss"
+                    else "No fine-tuned SSS weights present - classical CV blob detector fallback (demo mode)."
+                ),
+            )
         sonar_file.model_version_id = detector_mv.id
 
         update_status(IngestStatus.discriminating, 50, "Scoring natural vs. artificial")
         t0 = time.perf_counter()
-        discriminated = discriminate(image, detector_result.detections)
+        discriminated = discriminate(image, classified_detections)
         record_latency("discrimination", (time.perf_counter() - t0) * 1000)
 
         update_status(IngestStatus.calibrating, 65, "Calibrating confidence")

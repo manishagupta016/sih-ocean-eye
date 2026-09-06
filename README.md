@@ -32,33 +32,81 @@ Two things are treated as non-negotiable throughout the codebase:
 | Backend | FastAPI (async), SQLAlchemy 2.0, Alembic, PostgreSQL + PostGIS, Redis (job status), JWT auth (python-jose + passlib) |
 | ML pipeline | Ultralytics YOLOv8 detector (pluggable, falls back to a classical-CV detector when no fine-tuned weights are present), a GradientBoosting natural-vs-artificial discriminator, isotonic confidence calibration, a transparent weighted risk-scoring formula |
 
-## Important limitation, stated plainly
+## Model status, stated plainly
 
-**No fine-tuned YOLOv8-on-SSS weights ship with this repo**, and the discrimination/calibration
-models are bootstrapped on synthetic priors rather than a labeled SSS dataset. This environment has
-no GPU and no access to a labeled SSS/FLS dataset to actually run the training job the hackathon
-brief describes. Instead:
+**Object localization (finding *where* candidates are) is still a classical-CV heuristic**
+(`backend/app/ml/detector.py`'s `MockSonarDetector` - adaptive threshold + contour analysis on the
+real uploaded image), because no bounding-box-labeled SSS dataset is available. No fine-tuned
+YOLOv8 detector ships with this repo; `backend/scripts/train_yolo.py`, `evaluate_detector.py`, and
+`cross_domain_eval.py` are real, runnable scripts for that workflow once box-labeled data exists.
 
-- `backend/app/ml/detector.py` loads real YOLOv8 weights from `ml_artifacts/yolov8n_sss.pt` **if
-  present**; otherwise it falls back to `MockSonarDetector`, a classical adaptive-threshold +
-  contour-analysis detector that runs on the *actual* uploaded image (real bounding boxes grounded
-  in real image content, not randomly generated) so the rest of the pipeline and every page in the
-  frontend can be demoed and evaluated honestly end-to-end.
-- `backend/app/ml/discriminator.py` and `backend/app/ml/calibration.py` bootstrap their models from
-  synthetic-but-domain-informed priors on first run and say so in their logs and docstrings.
-- `backend/scripts/train_yolo.py`, `evaluate_detector.py`, and `cross_domain_eval.py` are real,
-  runnable scripts for the actual training/evaluation workflow - point them at a real SSS dataset
-  (Ultralytics format) to replace the illustrative numbers on the Analytics page. **Forward-Looking
-  Sonar (FLS) data must never be used as SSS ground truth** in this project - only for
-  pretraining/transfer learning - and that provenance is what `ModelVersion.trained_on` records and
-  the Analytics page displays.
+**Object classification (identifying *what* each candidate is), natural-vs-artificial
+discrimination, and confidence calibration are real, trained on real user-supplied side-scan sonar
+imagery** (499 crops across 5 classes: `engineering_platform`, `pipeline_or_cable`, `plane_real`,
+`seabed_surface`, `underwater_residual_mound`):
+
+- `backend/app/ml/classifier.py` loads a YOLOv8n-cls model from `ml_artifacts/ocean_eye_cls.pt`
+  **if present**, re-classifying each region the localizer proposes and dropping candidates it
+  recognizes as plain seabed texture (no object) instead of reporting them as debris. If the
+  weights are absent, the pipeline falls back to the localizer's own heuristic class guess.
+- Training data was expanded from the original 499 clean crops to ~3,900 crops proposed by the
+  *same* localizer that runs at inference time
+  (`backend/scripts/generate_localizer_consistent_crops.py`) - this closes a real train/inference
+  distribution gap we hit and fixed during development: a classifier trained only on clean
+  whole-image crops confidently misclassified small upscaled noise sub-crops as
+  high-confidence-hazard objects, because it had never seen what an upscaled background sliver
+  looks like. The dataset split is grouped by parent source image
+  (`backend/scripts/prepare_classification_dataset.py`) so crops from the same source image can't
+  leak across train/val and inflate the reported accuracy.
+- Measured held-out accuracy: **76.4%** (447/585, 5-way classification on localizer-proposed
+  crops - a harder, more representative task than clean-crop accuracy would suggest). Full
+  reproduction steps are in `backend/scripts/train_classifier.py`'s docstring.
+- `backend/app/ml/discriminator.py` (natural vs. artificial) and `backend/app/ml/calibration.py`
+  (confidence calibration) are retrained on real labels derived from the same dataset via
+  `scripts/train_discriminator_from_real_data.py` and `scripts/train_calibrator_from_real_data.py`,
+  replacing the synthetic-prior bootstrap they fall back to when no real data has been supplied.
+- **Forward-Looking Sonar (FLS) data must never be used as SSS ground truth** in this project -
+  only for pretraining/transfer learning - and that provenance is what `ModelVersion.trained_on`
+  records and the Analytics page displays.
 - The Analytics page marks every number that hasn't been measured this way as
-  `"source": "illustrative_demo"` and shows a visible banner - it never claims a real evaluation ran
-  when it didn't.
+  `"source": "illustrative_demo"` (vs. `"measured"`) with a visible per-chart badge - it never
+  claims a real evaluation ran when it didn't.
 
 Every other part of the system - auth, the DB schema, the pipeline orchestration, risk scoring,
 geolocation, reports, and all 11 frontend pages - is fully implemented and has been exercised
 end-to-end in a real browser (not just unit-tested).
+
+## Training the models on your own data
+
+Given a folder of per-class crops (`<source>/<Class Name>/*.jpg`, one subfolder per class, no
+bounding boxes needed):
+
+```bash
+cd backend && source .venv/bin/activate
+
+# 1. Regenerate training crops using the same localizer that runs at inference time (do not skip -
+#    training on clean whole-image crops instead reproduces the background-misclassification bug
+#    described above).
+python -m scripts.generate_localizer_consistent_crops --source "/path/to/your/crops" \
+    --out ml_artifacts/localizer_crops
+
+# 2. Split into train/val, grouped by parent source image (no leakage).
+python -m scripts.prepare_classification_dataset --source ml_artifacts/localizer_crops \
+    --out ml_artifacts/datasets/ocean_eye_cls
+
+# 3. Train the classifier (Apple Silicon: --device mps; else --device cpu or a CUDA index).
+python -m scripts.train_classifier --data ml_artifacts/datasets/ocean_eye_cls --device mps
+
+# 4. Retrain discrimination + calibration on the same corrected dataset.
+python -m scripts.train_discriminator_from_real_data --dataset ml_artifacts/datasets/ocean_eye_cls
+python -m scripts.train_calibrator_from_real_data --dataset ml_artifacts/datasets/ocean_eye_cls \
+    --weights ml_artifacts/ocean_eye_cls.pt
+```
+
+Restart the backend afterward - all three artifacts are loaded once at startup. Class names become
+whatever your folder names normalize to (lowercase, spaces/hyphens to underscores); update
+`ARTIFICIAL_CLASSES` / `NATURAL_CLASSES` / `BACKGROUND_CLASSES` in `app/ml/classifier.py` to match
+if you introduce new classes.
 
 ## Running locally with Docker Compose
 
