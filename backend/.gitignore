@@ -6,8 +6,6 @@ uploads/*
 !uploads/.gitkeep
 reports/*
 !reports/.gitkeep
-ml_artifacts/datasets/
-ml_artifacts/localizer_crops/
 ml_artifacts/runs/
 ml_artifacts/weights_cache/
 *.db

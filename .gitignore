@@ -11,10 +11,10 @@ backend/uploads/*
 backend/reports/*
 !backend/reports/.gitkeep
 # Trained model artifacts (ocean_eye_cls.pt, discriminator.joblib, calibrator.joblib,
-# calibration_real_val.json) are intentionally NOT ignored - they're small (~3MB total) and
-# tracked so a fresh clone has working trained models without needing to retrain immediately.
-backend/ml_artifacts/datasets/
-backend/ml_artifacts/localizer_crops/
+# calibration_real_val.json), the localizer-consistent training crops, and the prepared
+# train/val split are all intentionally NOT ignored - a fresh clone gets the exact same trained
+# models and intermediate data this machine has, with nothing to regenerate.
+# Only genuinely disposable Ultralytics scratch space stays excluded:
 backend/ml_artifacts/runs/
 backend/ml_artifacts/weights_cache/
 
