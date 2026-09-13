@@ -10,3 +10,4 @@ ml_artifacts/runs/
 ml_artifacts/weights_cache/
 *.db
 .pytest_cache/
+backups/
