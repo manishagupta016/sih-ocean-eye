@@ -8,6 +8,7 @@ import { AppShell, PageHeader } from '@/components/layout/AppShell'
 import { RiskTierBadge } from '@/components/common/RiskTierBadge'
 import { ObjectIdentificationDialog } from '@/components/detection/ObjectIdentificationDialog'
 import { ObjectMesh3D } from '@/components/models3d/ObjectMesh3D'
+import { ProceduralSonarSwatch } from '@/components/models3d/ProceduralSonarSwatch'
 import { SonarCropThumbnail } from '@/components/models3d/SonarCropThumbnail'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -29,6 +30,9 @@ const NEUTRAL_HEX = '#1ebdf5'
 interface ClassModelData {
   entry: IdentificationClass
   best: DetectionWithContext | undefined
+  /** Every real detection of this class, best confidence first - used to fall back to the next
+   * candidate's image when the top one's backing file is missing (see SonarCropThumbnail). */
+  candidates: DetectionWithContext[]
   aspectRatio: number
   scaleM: number
   roundness: number
@@ -38,13 +42,17 @@ interface ClassModelData {
   color: string
 }
 
-function buildModelData(entry: IdentificationClass, bestByLabel: Map<string, DetectionWithContext>): ClassModelData {
-  const best = entry.matchesLabels.map((l) => bestByLabel.get(l)).find((d) => d !== undefined)
+function buildModelData(entry: IdentificationClass, byLabel: Map<string, DetectionWithContext[]>): ClassModelData {
+  const candidates = entry.matchesLabels
+    .flatMap((l) => byLabel.get(l) ?? [])
+    .sort((a, b) => b.calibrated_confidence - a.calibrated_confidence)
+  const best = candidates[0]
 
   if (!best) {
     return {
       entry,
       best: undefined,
+      candidates: [],
       aspectRatio: 0.55,
       scaleM: 1.6,
       roundness: 0.5,
@@ -64,6 +72,7 @@ function buildModelData(entry: IdentificationClass, bestByLabel: Map<string, Det
   return {
     entry,
     best,
+    candidates,
     aspectRatio,
     scaleM,
     roundness: best.shape_regularity ?? 0.5,
@@ -79,18 +88,19 @@ export function ModelsPage() {
   const [openSlug, setOpenSlug] = useState<string | null>(null)
   const [identifiedDetection, setIdentifiedDetection] = useState<DetectionWithContext | null>(null)
 
-  const bestByLabel = useMemo(() => {
-    const map = new Map<string, DetectionWithContext>()
+  const byLabel = useMemo(() => {
+    const map = new Map<string, DetectionWithContext[]>()
     for (const d of detectionsQuery.data ?? []) {
-      const existing = map.get(d.class_label)
-      if (!existing || d.calibrated_confidence > existing.calibrated_confidence) map.set(d.class_label, d)
+      const list = map.get(d.class_label)
+      if (list) list.push(d)
+      else map.set(d.class_label, [d])
     }
     return map
   }, [detectionsQuery.data])
 
   const models = useMemo(
-    () => IDENTIFICATION_CLASSES.map((entry) => buildModelData(entry, bestByLabel)),
-    [bestByLabel],
+    () => IDENTIFICATION_CLASSES.map((entry) => buildModelData(entry, byLabel)),
+    [byLabel],
   )
 
   const detectedCount = models.filter((m) => m.best).length
@@ -139,13 +149,18 @@ export function ModelsPage() {
 
               <div className="mt-2 grid grid-cols-2 gap-px bg-border">
                 <div className="relative h-[140px] bg-black">
-                  {m.best ? (
-                    <SonarCropThumbnail sonarFileId={m.best.sonar_file_id} bbox={m.best.bbox} className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="flex h-full items-center justify-center text-center text-[11px] text-muted-foreground px-2">
-                      No sonar crop yet
-                    </div>
-                  )}
+                  <SonarCropThumbnail
+                    candidates={m.candidates.map((d) => ({ sonarFileId: d.sonar_file_id, bbox: d.bbox }))}
+                    className="h-full w-full object-cover"
+                    fallback={
+                      <div className="relative h-full w-full">
+                        <ProceduralSonarSwatch seed={m.entry.slug} artificial={m.entry.category === 'artificial'} className="h-full w-full" />
+                        <span className="absolute bottom-1.5 right-1.5 rounded bg-black/70 px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wide text-warning">
+                          Illustrative
+                        </span>
+                      </div>
+                    }
+                  />
                   <span className="absolute left-1.5 top-1.5 rounded bg-black/60 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white">
                     Sonar
                   </span>

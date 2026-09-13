@@ -1,18 +1,42 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { getSonarFileImageObjectUrl } from '@/api/uploads'
 import type { BBox } from '@/api/types'
-import { ImageOff } from 'lucide-react'
+
+export interface CropCandidate {
+  sonarFileId: string
+  bbox: BBox
+}
 
 /** Crops the real uploaded sonar image to one detection's bounding box - an actual pixel crop of
- * this instance's own data, not a stock or generated image. */
-export function SonarCropThumbnail({ sonarFileId, bbox, className }: { sonarFileId: string; bbox: BBox; className?: string }) {
+ * this instance's own data, not a stock or generated image. Some older demo/seed rows reference a
+ * sonar file whose backing image was never retained on disk, so this tries each ranked candidate
+ * in turn (highest confidence first) and only gives up once every one of them has failed to load. */
+export function SonarCropThumbnail({
+  candidates,
+  className,
+  fallback,
+}: {
+  candidates: CropCandidate[]
+  className?: string
+  fallback: ReactNode
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const [failed, setFailed] = useState(false)
+  const [attempt, setAttempt] = useState(0)
+  const [exhausted, setExhausted] = useState(false)
 
   useEffect(() => {
+    setAttempt(0)
+    setExhausted(false)
+  }, [candidates])
+
+  useEffect(() => {
+    if (exhausted || attempt >= candidates.length) {
+      if (attempt >= candidates.length && candidates.length > 0) setExhausted(true)
+      return
+    }
+    const { sonarFileId, bbox } = candidates[attempt]
     let cancelled = false
     let objectUrl: string | null = null
-    setFailed(false)
 
     getSonarFileImageObjectUrl(sonarFileId)
       .then((url) => {
@@ -33,24 +57,18 @@ export function SonarCropThumbnail({ sonarFileId, bbox, className }: { sonarFile
           ctx.clearRect(0, 0, canvas.width, canvas.height)
           ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height)
         }
-        img.onerror = () => !cancelled && setFailed(true)
+        img.onerror = () => !cancelled && setAttempt((a) => a + 1)
         img.src = url
       })
-      .catch(() => !cancelled && setFailed(true))
+      .catch(() => !cancelled && setAttempt((a) => a + 1))
 
     return () => {
       cancelled = true
       if (objectUrl) URL.revokeObjectURL(objectUrl)
     }
-  }, [sonarFileId, bbox.x, bbox.y, bbox.w, bbox.h])
+  }, [attempt, exhausted, candidates])
 
-  if (failed) {
-    return (
-      <div className={`flex items-center justify-center bg-black text-muted-foreground ${className ?? ''}`}>
-        <ImageOff className="h-5 w-5" />
-      </div>
-    )
-  }
+  if (candidates.length === 0 || exhausted) return <>{fallback}</>
 
   return <canvas ref={canvasRef} width={160} height={160} className={className} />
 }

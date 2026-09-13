@@ -1,14 +1,18 @@
 from contextlib import asynccontextmanager
 
 import cv2
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
+from sqlalchemy import text
+from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.logging import configure_logging, get_logger
 from app.core.rate_limit import limiter
+from app.db.session import get_db
 from app.middleware.error_handlers import register_exception_handlers
 from app.middleware.request_context import RequestContextMiddleware
 from app.routers import alerts, analytics, auth, detections, reports, risk_scores, surveys, uploads
@@ -80,5 +84,19 @@ app.include_router(alerts.router, prefix=settings.API_V1_PREFIX)
 
 
 @app.get("/health", tags=["health"])
-def health():
-    return {"status": "ok", "app": settings.APP_NAME}
+def health(db: Session = Depends(get_db)):
+    try:
+        db.execute(text("SELECT 1"))
+        db_status = "ok"
+    except Exception as exc:  # noqa: BLE001 - report as unhealthy rather than 500
+        logger.warning("health_check_database_unavailable", error=str(exc))
+        db_status = "unavailable"
+
+    healthy = db_status == "ok"
+    payload = {
+        "status": "ok" if healthy else "degraded",
+        "app": settings.APP_NAME,
+        "environment": settings.ENVIRONMENT,
+        "checks": {"database": db_status},
+    }
+    return JSONResponse(status_code=200 if healthy else 503, content=payload)
