@@ -4,10 +4,13 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { listDetections } from '@/api/detections'
 import { getSonarFile, getSonarFileImageObjectUrl } from '@/api/uploads'
+import type { DetectionRead } from '@/api/types'
 import { AppShell, PageHeader } from '@/components/layout/AppShell'
 import { ConfidenceBar } from '@/components/common/ConfidenceBar'
 import { RiskTierBadge } from '@/components/common/RiskTierBadge'
 import { EmptyState, ErrorState, LoadingState } from '@/components/common/StateViews'
+import { ObjectIdentificationDialog } from '@/components/detection/ObjectIdentificationDialog'
+import { PipelineStrip } from '@/components/detection/PipelineStrip'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Slider } from '@/components/ui/slider'
@@ -22,6 +25,7 @@ export function ResultsPage() {
   const [imageError, setImageError] = useState(false)
   const [naturalSize, setNaturalSize] = useState<{ w: number; h: number } | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [identifiedDetection, setIdentifiedDetection] = useState<DetectionRead | null>(null)
 
   const sonarFileQuery = useQuery({
     queryKey: ['sonar-file', sonarFileId],
@@ -61,6 +65,8 @@ export function ResultsPage() {
         title="AI Analysis Results"
         description={sonarFileQuery.data ? sonarFileQuery.data.file_path.split('/').pop() : 'Loading survey line…'}
       />
+
+      <PipelineStrip status={sonarFileQuery.data?.status} />
 
       {sonarFileQuery.data?.model_is_fallback && (
         <Card className="mb-4 border-warning/40 bg-warning/5">
@@ -138,7 +144,10 @@ export function ResultsPage() {
                         <div
                           key={d.id}
                           onMouseEnter={() => setSelectedId(d.id)}
-                          className="absolute border-2 transition-[outline]"
+                          onClick={() => setIdentifiedDetection(d)}
+                          role="button"
+                          tabIndex={0}
+                          className="absolute cursor-pointer border-2 transition-[outline]"
                           style={{
                             left: `${(d.bbox.x / naturalSize.w) * 100}%`,
                             top: `${(d.bbox.y / naturalSize.h) * 100}%`,
@@ -200,7 +209,8 @@ export function ResultsPage() {
                 <div
                   key={d.id}
                   onMouseEnter={() => setSelectedId(d.id)}
-                  className={`cursor-default rounded-md border p-2.5 transition-colors ${
+                  onClick={() => setIdentifiedDetection(d)}
+                  className={`cursor-pointer rounded-md border p-2.5 transition-colors hover:border-primary/50 ${
                     selectedId === d.id ? 'border-primary bg-primary/5' : 'border-border'
                   }`}
                 >
@@ -208,12 +218,23 @@ export function ResultsPage() {
                     <span className="text-sm font-medium text-foreground">{classLabelToTitle(d.class_label)}</span>
                     {d.risk_score && <RiskTierBadge tier={d.risk_score.risk_tier} />}
                   </div>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setIdentifiedDetection(d)
+                    }}
+                    className="mb-1.5 inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                  >
+                    <Sparkles className="h-3 w-3" /> Open identification report
+                  </button>
                   {CLASS_LABEL_TO_GUIDE_SLUG[d.class_label] && (
                     <Link
                       to={`/identification-guide?class=${CLASS_LABEL_TO_GUIDE_SLUG[d.class_label]}`}
-                      className="mb-1.5 inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                      onClick={(e) => e.stopPropagation()}
+                      className="mb-1.5 ml-3 inline-flex items-center gap-1 text-xs text-primary hover:underline"
                     >
-                      <BookOpen className="h-3 w-3" /> View identification criteria
+                      <BookOpen className="h-3 w-3" /> Guide entry
                     </Link>
                   )}
                   <div className="mb-1.5 flex items-center gap-2">
@@ -236,6 +257,11 @@ export function ResultsPage() {
           </CardContent>
         </Card>
       </div>
+
+      <ObjectIdentificationDialog
+        detection={identifiedDetection}
+        onOpenChange={(open) => !open && setIdentifiedDetection(null)}
+      />
     </AppShell>
   )
 }

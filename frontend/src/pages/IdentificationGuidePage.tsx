@@ -1,22 +1,69 @@
-import { ChevronDown, ExternalLink, Search } from 'lucide-react'
+import { ChevronDown, ExternalLink, GitCompare, Search } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { AppShell, PageHeader } from '@/components/layout/AppShell'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   COMMON_PARAMETER_GROUPS,
   GUIDE_SOURCES,
   IDENTIFICATION_CLASSES,
   MODELING_PRIORITY,
+  type IdentificationClass,
   type ObjectCategory,
 } from '@/data/identificationGuide'
 import { classLabelToTitle } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 type CategoryFilter = ObjectCategory | 'all'
+
+function ClassColumn({ entry }: { entry: IdentificationClass | undefined }) {
+  if (!entry) return <div className="text-sm text-muted">Select a class to compare.</div>
+  return (
+    <div>
+      <div className="mb-1 flex flex-wrap items-center gap-2">
+        <h4 className="text-sm font-semibold text-foreground">{entry.name}</h4>
+        <Badge variant={entry.category === 'artificial' ? 'danger' : 'secondary'}>
+          {entry.category === 'artificial' ? 'Man-made' : 'Natural'}
+        </Badge>
+      </div>
+      <p className="mb-2 text-xs text-muted">{entry.classification}</p>
+      {entry.matchesLabels.length > 0 ? (
+        <Badge variant="outline" className="mb-3">
+          Detected as: {entry.matchesLabels.map(classLabelToTitle).join(', ')}
+        </Badge>
+      ) : (
+        <Badge variant="warning" className="mb-3">
+          Not yet trained in current model
+        </Badge>
+      )}
+      <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        Identification parameters
+      </p>
+      <ul className="mb-3 space-y-1 text-xs text-muted">
+        {entry.identificationParameters.map((p) => (
+          <li key={p} className="flex gap-1.5">
+            <span className="text-primary">•</span>
+            {p}
+          </li>
+        ))}
+      </ul>
+      <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Visual cues</p>
+      <ul className="space-y-1 text-xs text-muted">
+        {entry.visualDetails.map((v) => (
+          <li key={v} className="flex gap-1.5">
+            <span className="text-primary">•</span>
+            {v}
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
 
 export function IdentificationGuidePage() {
   const [searchParams] = useSearchParams()
@@ -26,6 +73,12 @@ export function IdentificationGuidePage() {
   const [category, setCategory] = useState<CategoryFilter>('all')
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(highlightSlug ? [highlightSlug] : []))
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({})
+
+  const [compareOpen, setCompareOpen] = useState(false)
+  const [compareA, setCompareA] = useState(IDENTIFICATION_CLASSES[0].slug)
+  const [compareB, setCompareB] = useState(IDENTIFICATION_CLASSES[1].slug)
+  const compareEntryA = IDENTIFICATION_CLASSES.find((c) => c.slug === compareA)
+  const compareEntryB = IDENTIFICATION_CLASSES.find((c) => c.slug === compareB)
 
   useEffect(() => {
     if (!highlightSlug) return
@@ -94,7 +147,53 @@ export function IdentificationGuidePage() {
             <TabsTrigger value="natural">Natural</TabsTrigger>
           </TabsList>
         </Tabs>
+        <Button variant={compareOpen ? 'default' : 'outline'} size="sm" onClick={() => setCompareOpen((v) => !v)}>
+          <GitCompare className="h-3.5 w-3.5" /> Compare classes
+        </Button>
       </div>
+
+      {compareOpen && (
+        <Card className="mb-4">
+          <CardHeader>
+            <h2 className="text-sm font-semibold text-foreground">Class comparison</h2>
+            <p className="text-xs text-muted">
+              How the system tells visually similar underwater targets apart - reference criteria side by side.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <div className="mb-4 grid gap-3 sm:grid-cols-2">
+              <Select value={compareA} onValueChange={setCompareA}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Class A" />
+                </SelectTrigger>
+                <SelectContent>
+                  {IDENTIFICATION_CLASSES.map((c) => (
+                    <SelectItem key={c.slug} value={c.slug}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={compareB} onValueChange={setCompareB}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Class B" />
+                </SelectTrigger>
+                <SelectContent>
+                  {IDENTIFICATION_CLASSES.map((c) => (
+                    <SelectItem key={c.slug} value={c.slug}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-4 border-t border-border pt-4 sm:grid-cols-2">
+              <ClassColumn entry={compareEntryA} />
+              <ClassColumn entry={compareEntryB} />
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-3 lg:grid-cols-2">
         {filtered.map((entry) => {
@@ -123,6 +222,11 @@ export function IdentificationGuidePage() {
                     </Badge>
                   </div>
                   <p className="text-xs text-muted">{entry.classification}</p>
+                  {!isOpen && (
+                    <p className="mt-1.5 text-[11px] text-muted-foreground">
+                      Key cue: {entry.identificationParameters[0]} · {entry.visualDetails[0]}
+                    </p>
+                  )}
                   <div className="mt-2 flex flex-wrap gap-1">
                     {entry.matchesLabels.length > 0 ? (
                       entry.matchesLabels.map((label) => (

@@ -25,6 +25,12 @@ class Detection(Base):
     is_artificial: Mapped[bool] = mapped_column(Boolean, nullable=False)
     artificial_score: Mapped[float] = mapped_column(Float, nullable=False)
 
+    # Shape/shadow/texture signals the discriminator stage computed from the real image
+    # (app/ml/discriminator.py) — nullable because rows written before this column existed have none.
+    shape_regularity: Mapped[float | None] = mapped_column(Float, nullable=True)
+    shadow_length_px: Mapped[float | None] = mapped_column(Float, nullable=True)
+    texture_variance: Mapped[float | None] = mapped_column(Float, nullable=True)
+
     # Only populated when has_geo_metadata is True — never interpolated/fabricated.
     geom = mapped_column(Geography(geometry_type="POINT", srid=4326), nullable=True)
     has_geo_metadata: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

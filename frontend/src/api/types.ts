@@ -118,6 +118,9 @@ export interface DetectionRead {
   calibrated_confidence: number
   is_artificial: boolean
   artificial_score: number
+  shape_regularity: number | null
+  shadow_length_px: number | null
+  texture_variance: number | null
   has_geo_metadata: boolean
   latitude: number | null
   longitude: number | null

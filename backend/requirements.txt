@@ -1,3 +1,5 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
+
 fastapi==0.115.0
 uvicorn[standard]==0.30.6
 sqlalchemy==2.0.52
@@ -17,7 +19,13 @@ numpy==2.5.2
 opencv-python-headless==5.0.0.93
 scikit-learn==1.9.0
 joblib==1.6.0
-onnxruntime==1.29.0
+# CPU-only wheels (the default PyPI torch build bundles CUDA runtime libs, ~6GB of dead
+# weight on a CPU-only host) - split by platform since download.pytorch.org's Linux
+# wheels use a "+cpu" local version but its macOS wheels don't.
+torch==2.14.0+cpu ; sys_platform == "linux"
+torch==2.14.0 ; sys_platform != "linux"
+torchvision==0.29.0+cpu ; sys_platform == "linux"
+torchvision==0.29.0 ; sys_platform != "linux"
 ultralytics==8.4.118
 pillow==12.3.0
 python-dotenv==1.0.1

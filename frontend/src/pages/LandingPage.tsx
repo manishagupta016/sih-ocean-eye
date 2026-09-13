@@ -1,19 +1,10 @@
-import {
-  ArrowRight,
-  BarChart3,
-  Gauge,
-  Leaf,
-  MapPinned,
-  Radar,
-  ScanSearch,
-  ShieldCheck,
-  Trash2,
-  Waves,
-} from 'lucide-react'
+import { ArrowRight, BarChart3, BookOpen, Leaf, Radar, ShieldCheck, Trash2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Logo } from '@/components/common/Logo'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { IDENTIFICATION_CLASSES } from '@/data/identificationGuide'
+import { PIPELINE_STAGES } from '@/data/pipelineStages'
 
 const VISION_PILLARS = [
   { icon: Radar, label: 'Sonar Vision' },
@@ -23,12 +14,13 @@ const VISION_PILLARS = [
   { icon: Leaf, label: 'Sustainable Future' },
 ]
 
-const PIPELINE_STAGES = [
-  { icon: ScanSearch, title: 'Detect', description: 'YOLOv8 locates candidate objects in side-scan sonar waterfall imagery.' },
-  { icon: Waves, title: 'Discriminate', description: 'A separate shape/shadow/texture classifier scores natural vs. artificial.' },
-  { icon: Gauge, title: 'Calibrate', description: 'Isotonic calibration turns raw confidence into a trustworthy probability.' },
-  { icon: ShieldCheck, title: 'Risk-score', description: 'A transparent, inspectable formula assigns one of four risk tiers.' },
-  { icon: MapPinned, title: 'Geolocate', description: 'Coordinates attach only when real navigation metadata is present.' },
+const TRAINED_CLASS_COUNT = IDENTIFICATION_CLASSES.filter((c) => c.matchesLabels.length > 0).length
+
+const SCOPE_STATS = [
+  { value: `${IDENTIFICATION_CLASSES.length}`, label: 'reference object classes' },
+  { value: `${TRAINED_CLASS_COUNT}`, label: 'with a real trained classifier' },
+  { value: '5', label: 'pipeline stages, fully inspectable' },
+  { value: '0', label: 'fabricated coordinates - ever' },
 ]
 
 const FEATURES = [
@@ -102,10 +94,27 @@ export function LandingPage() {
               Launch console <ArrowRight className="h-4 w-4" />
             </Link>
           </Button>
+          <Button asChild size="lg" variant="outline">
+            <Link to="/login">
+              <BookOpen className="h-4 w-4" /> Identification guide
+            </Link>
+          </Button>
+        </div>
+
+        <div className="mx-auto mt-12 grid max-w-3xl grid-cols-2 gap-4 sm:grid-cols-4">
+          {SCOPE_STATS.map((s) => (
+            <div key={s.label}>
+              <p className="text-2xl font-bold text-primary tabular-nums">{s.value}</p>
+              <p className="mt-1 text-xs text-muted">{s.label}</p>
+            </div>
+          ))}
         </div>
       </section>
 
       <section className="mx-auto max-w-6xl px-6 pb-16">
+        <p className="mb-4 text-center text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+          The pipeline, stage by stage
+        </p>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
           {PIPELINE_STAGES.map(({ icon: Icon, title, description }, i) => (
             <Card key={title} className="relative">

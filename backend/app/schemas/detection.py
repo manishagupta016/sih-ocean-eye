@@ -34,6 +34,9 @@ class DetectionRead(BaseModel):
     calibrated_confidence: float
     is_artificial: bool
     artificial_score: float
+    shape_regularity: float | None = None
+    shadow_length_px: float | None = None
+    texture_variance: float | None = None
     has_geo_metadata: bool
     latitude: float | None
     longitude: float | None

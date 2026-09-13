@@ -28,9 +28,11 @@
     "clsx": "^2.1.1",
     "leaflet": "^1.9.4",
     "lucide-react": "^1.41.0",
+    "plotly.js-gl3d-dist-min": "^4.1.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-leaflet": "^5.0.0",
+    "react-plotly.js": "^4.1.0",
     "react-router-dom": "^7.18.3",
     "recharts": "^3.10.1",
     "tailwind-merge": "^3.6.0",
@@ -39,8 +41,10 @@
   "devDependencies": {
     "@types/leaflet": "^1.9.22",
     "@types/node": "^24.13.3",
+    "@types/plotly.js": "^3.0.13",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
+    "@types/react-plotly.js": "^2.6.4",
     "@vitejs/plugin-react": "^6.1.0",
     "autoprefixer": "^10.5.5",
     "oxlint": "^1.79.0",
@@ -48,5 +52,8 @@
     "tailwindcss": "^4.3.3",
     "typescript": "~6.0.2",
     "vite": "^8.2.2"
+  },
+  "overrides": {
+    "maplibre-gl": "^6.9.0"
   }
 }
