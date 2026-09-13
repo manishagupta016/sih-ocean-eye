@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 
+import cv2
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
@@ -14,6 +15,13 @@ from app.routers import alerts, analytics, auth, detections, reports, risk_score
 
 configure_logging(debug=settings.DEBUG)
 logger = get_logger("startup")
+
+# Under concurrent upload load, this OpenCV build's imread/imdecode with IMREAD_GRAYSCALE
+# intermittently returns a 3D (H, W, 1) array instead of the documented 2D (H, W) - reducing
+# OpenCV's own internal parallelism makes that far less likely to occur (the actual fix, a
+# defensive ndim normalization, lives at each imread/imdecode call site - see
+# app/services/pipeline.py and app/routers/uploads.py).
+cv2.setNumThreads(1)
 
 
 @asynccontextmanager

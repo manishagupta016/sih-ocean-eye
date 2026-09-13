@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react'
+import { ArrowDown, ArrowUp, ArrowUpDown, BookOpen } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { listDetections } from '@/api/detections'
@@ -10,6 +10,7 @@ import { EmptyState, ErrorState, SkeletonRows } from '@/components/common/StateV
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { CLASS_LABEL_TO_GUIDE_SLUG } from '@/data/identificationGuide'
 import { classLabelToTitle, formatDateTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -133,6 +134,15 @@ export function RiskListPage() {
                     <Link to={`/results/${d.sonar_file_id}`} className="hover:text-primary">
                       {classLabelToTitle(d.class_label)}
                     </Link>
+                    {CLASS_LABEL_TO_GUIDE_SLUG[d.class_label] && (
+                      <Link
+                        to={`/identification-guide?class=${CLASS_LABEL_TO_GUIDE_SLUG[d.class_label]}`}
+                        className="ml-1.5 inline-flex align-middle text-muted-foreground hover:text-primary"
+                        title="View identification criteria"
+                      >
+                        <BookOpen className="h-3.5 w-3.5" />
+                      </Link>
+                    )}
                   </TableCell>
                   <TableCell className="tabular-nums">{Math.round(d.calibrated_confidence * 100)}%</TableCell>
                   <TableCell>

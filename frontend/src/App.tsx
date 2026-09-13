@@ -4,6 +4,7 @@ import { AlertsPage } from '@/pages/AlertsPage'
 import { AnalyticsPage } from '@/pages/AnalyticsPage'
 import { AuthPage } from '@/pages/AuthPage'
 import { DashboardPage } from '@/pages/DashboardPage'
+import { IdentificationGuidePage } from '@/pages/IdentificationGuidePage'
 import { LandingPage } from '@/pages/LandingPage'
 import { MapPage } from '@/pages/MapPage'
 import { ReportsPage } from '@/pages/ReportsPage'
@@ -89,6 +90,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <SettingsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/identification-guide"
+          element={
+            <ProtectedRoute>
+              <IdentificationGuidePage />
             </ProtectedRoute>
           }
         />

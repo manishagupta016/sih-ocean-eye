@@ -18,7 +18,7 @@ from app.models.survey import Survey
 from app.models.user import User
 from app.models.user import UserRole
 from app.schemas.sonar_file import JobStatus, SonarFileRead, UploadResponse
-from app.services.pipeline import run_detection_pipeline
+from app.services.pipeline import submit_detection_pipeline
 from app.services.preprocessing import encode_png, preprocess
 
 router = APIRouter(prefix="/uploads", tags=["uploads"])
@@ -63,6 +63,10 @@ async def preview_preprocessing(file: UploadFile = File(...), current_user: User
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail={"code": "decode_failed", "message": "Could not decode this file as an image."},
         )
+    # See app/services/pipeline.py's identical guard: IMREAD_GRAYSCALE can intermittently come
+    # back as a 3D (H, W, 1) array under concurrent load instead of the documented 2D (H, W).
+    if image.ndim == 3:
+        image = image[:, :, 0]
     processed = preprocess(image)
     return {
         "before_png_base64": base64.b64encode(encode_png(image)).decode(),
@@ -129,7 +133,7 @@ async def upload_sonar_file(
         job_id,
         {"job_id": job_id, "sonar_file_id": str(sonar_file.id), "status": IngestStatus.queued.value, "progress_pct": 0},
     )
-    background_tasks.add_task(run_detection_pipeline, sonar_file.id, job_id)
+    submit_detection_pipeline(sonar_file.id, job_id)
 
     return UploadResponse(sonar_file=sonar_file, job_id=job_id)
 

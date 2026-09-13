@@ -1,6 +1,7 @@
 import {
   AlertTriangle,
   BarChart3,
+  BookOpen,
   FileText,
   LayoutDashboard,
   ListChecks,
@@ -17,6 +18,7 @@ const NAV_ITEMS = [
   { to: '/upload', label: 'Upload Data', icon: UploadCloud },
   { to: '/map', label: 'Map View', icon: MapIcon },
   { to: '/risk-list', label: 'Anomaly / Risk List', icon: ListChecks },
+  { to: '/identification-guide', label: 'Identification Guide', icon: BookOpen },
   { to: '/alerts', label: 'Alerts', icon: AlertTriangle },
   { to: '/reports', label: 'Reports', icon: FileText },
   { to: '/analytics', label: 'Analytics', icon: BarChart3 },

@@ -7,7 +7,9 @@ can be lifted into a Celery task or a standalone worker process later with minim
 only shared-infrastructure touchpoints are the DB session factory and the Redis-backed job status
 store, both already decoupled from the web-request lifecycle.
 """
+import concurrent.futures
 import os
+import threading
 import time
 import uuid
 
@@ -37,6 +39,22 @@ TIER_TO_ALERT_SEVERITY = {
     "high_confidence_hazard": AlertSeverity.critical,
 }
 
+# FastAPI's BackgroundTasks hands each job to whatever thread anyio's shared threadpool has free,
+# which can differ from call to call. Observed in practice: an intermittent, non-reproducible-per-
+# input "Invalid number of channels" error thrown from deep inside cv2/YOLO's preprocessing -
+# consistent with OpenCV's per-thread SIMD/CPU-feature dispatch state not being safe across
+# arbitrary threadpool threads, and never reproduced when the same calls run on one fixed thread
+# in isolation. Routing every pipeline run through a single dedicated worker thread avoids it; this
+# can be dropped once the pipeline is lifted into a real single-consumer worker queue (e.g. Celery).
+_pipeline_lock = threading.Lock()
+_pipeline_executor = concurrent.futures.ThreadPoolExecutor(max_workers=1, thread_name_prefix="oceaneye-pipeline")
+
+
+def submit_detection_pipeline(sonar_file_id: uuid.UUID, job_id: str) -> None:
+    """Entry point for callers (the uploads router) - queues the run on the dedicated pipeline
+    thread instead of FastAPI's BackgroundTasks threadpool. Fire-and-forget, same as before."""
+    _pipeline_executor.submit(run_detection_pipeline, sonar_file_id, job_id)
+
 
 def _get_or_create_model_version(db, name: str, version: str, trained_on: str) -> ModelVersion:
     """Upserts by (name, version): artifact files get retrained in place under the same path
@@ -56,6 +74,11 @@ def _get_or_create_model_version(db, name: str, version: str, trained_on: str) -
 
 
 def run_detection_pipeline(sonar_file_id: uuid.UUID, job_id: str) -> None:
+    with _pipeline_lock:
+        _run_detection_pipeline_locked(sonar_file_id, job_id)
+
+
+def _run_detection_pipeline_locked(sonar_file_id: uuid.UUID, job_id: str) -> None:
     db = SessionLocal()
     t_start = time.perf_counter()
     try:
@@ -86,6 +109,13 @@ def run_detection_pipeline(sonar_file_id: uuid.UUID, job_id: str) -> None:
         if image is None:
             update_status(IngestStatus.failed, 100, "Could not read image file")
             return
+        # cv2.imread(..., IMREAD_GRAYSCALE) is documented to always return a 2D (H, W) array, but
+        # under concurrent load this OpenCV build intermittently returns a 3D (H, W, 1) array
+        # instead - every downstream ndim==2 channel-count guard (detector.py, discriminator.py,
+        # preprocessing.py) then takes the "already color" branch and calls cv2.cvtColor on a
+        # single-channel image, which OpenCV rejects. Normalize here once, at the source.
+        if image.ndim == 3:
+            image = image[:, :, 0]
 
         nav_sidecar_path = sonar_file.file_path + ".nav.json"
         nav_track = parse_nav_log(nav_sidecar_path)
@@ -254,10 +284,15 @@ def run_detection_pipeline(sonar_file_id: uuid.UUID, job_id: str) -> None:
     except Exception as exc:  # noqa: BLE001
         db.rollback()
         logger.error("pipeline_failed", sonar_file_id=str(sonar_file_id), error=str(exc))
+        # status_message is VARCHAR(500) - a raw exception message (e.g. OpenCV's multi-line
+        # errors) can exceed that, and an unhandled StringDataRightTruncation here would abort
+        # this whole except block before the job ever gets marked failed, leaving the frontend
+        # polling a job stuck at its last in-progress status forever instead of showing an error.
+        truncated_message = str(exc)[:500]
         sf = db.get(SonarFile, sonar_file_id)
         if sf:
             sf.status = IngestStatus.failed
-            sf.status_message = str(exc)
+            sf.status_message = truncated_message
             db.commit()
         set_job_status(
             job_id,
@@ -266,7 +301,7 @@ def run_detection_pipeline(sonar_file_id: uuid.UUID, job_id: str) -> None:
                 "sonar_file_id": str(sonar_file_id),
                 "status": IngestStatus.failed.value,
                 "progress_pct": 100,
-                "message": str(exc),
+                "message": truncated_message,
             },
         )
     finally:

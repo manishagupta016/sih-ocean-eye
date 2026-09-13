@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
-import { AlertCircle, ImageOff, MapPin, ShieldOff, Sparkles } from 'lucide-react'
+import { AlertCircle, BookOpen, ImageOff, MapPin, ShieldOff, Sparkles } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { listDetections } from '@/api/detections'
 import { getSonarFile, getSonarFileImageObjectUrl } from '@/api/uploads'
 import { AppShell, PageHeader } from '@/components/layout/AppShell'
@@ -11,6 +11,7 @@ import { EmptyState, ErrorState, LoadingState } from '@/components/common/StateV
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Slider } from '@/components/ui/slider'
+import { CLASS_LABEL_TO_GUIDE_SLUG } from '@/data/identificationGuide'
 import { RISK_TIER_COLOR_VAR, classLabelToTitle } from '@/lib/format'
 import { summarizeDetections } from '@/lib/summarize'
 
@@ -207,6 +208,14 @@ export function ResultsPage() {
                     <span className="text-sm font-medium text-foreground">{classLabelToTitle(d.class_label)}</span>
                     {d.risk_score && <RiskTierBadge tier={d.risk_score.risk_tier} />}
                   </div>
+                  {CLASS_LABEL_TO_GUIDE_SLUG[d.class_label] && (
+                    <Link
+                      to={`/identification-guide?class=${CLASS_LABEL_TO_GUIDE_SLUG[d.class_label]}`}
+                      className="mb-1.5 inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                    >
+                      <BookOpen className="h-3 w-3" /> View identification criteria
+                    </Link>
+                  )}
                   <div className="mb-1.5 flex items-center gap-2">
                     <Badge variant={d.is_artificial ? 'danger' : 'secondary'}>
                       {d.is_artificial ? 'Artificial' : 'Natural'} · {Math.round(d.artificial_score * 100)}%
