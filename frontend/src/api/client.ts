@@ -2,8 +2,7 @@ import axios, { AxiosError, type AxiosRequestConfig } from 'axios'
 import { useAuthStore } from '@/store/auth'
 import type { ApiErrorBody, TokenPair } from './types'
 
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000/api/v1'
-
+export const API_BASE_URL = 'https://test-2.trackier.io/api/v1';
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
 })
